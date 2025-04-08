@@ -11,15 +11,14 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-
-# Add parent directories to path
 import sys
+
+# Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Import models
 from src.models.image.xception_model import create_model as create_xception
 from src.models.image.efficientnet_model import create_model as create_efficientnet
-
 # Load configuration
 with open('config/config.json', 'r') as f:
     config = json.load(f)

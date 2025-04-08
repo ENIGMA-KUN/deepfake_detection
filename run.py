@@ -25,8 +25,14 @@ def setup_dataset():
 def train_model(model_type, epochs, batch_size, learning_rate):
     """Train model"""
     print(f"Training {model_type} model...")
+    
+    if model_type == 'resnet':
+        script_path = "train_resnet.py"
+    else:
+        script_path = "src/models/image/train.py"
+        
     cmd = [
-        sys.executable, "src/models/image/train.py",
+        sys.executable, script_path,
         "--model", model_type,
         "--epochs", str(epochs),
         "--batch_size", str(batch_size),
@@ -70,9 +76,10 @@ def main():
     setup_parser.add_argument('--skip-dataset', action='store_true', help='Skip dataset download and preprocessing')
     
     # Train command
+   # Train command
     train_parser = subparsers.add_parser('train', help='Train model')
-    train_parser.add_argument('--model', type=str, default='xception', choices=['xception', 'efficientnet'],
-                             help='Model type')
+    train_parser.add_argument('--model', type=str, default='resnet', choices=['xception', 'efficientnet', 'resnet'],
+                         help='Model type')
     train_parser.add_argument('--epochs', type=int, default=20, help='Number of epochs')
     train_parser.add_argument('--batch-size', type=int, default=32, help='Batch size')
     train_parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')

@@ -1,0 +1,10 @@
+real_0_0.jpg,0
+real_1_1.jpg,0
+real_2_2.jpg,0
+real_3_3.jpg,0
+real_4_4.jpg,0
+real_5_5.jpg,0
+real_6_6.jpg,0
+real_7_7.jpg,0
+real_8_8.jpg,0
+real_9_9.jpg,0

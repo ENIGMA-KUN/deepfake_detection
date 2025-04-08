@@ -1,0 +1,10 @@
+fake_0_0.jpg,1
+fake_1_1.jpg,1
+fake_2_2.jpg,1
+fake_3_3.jpg,1
+fake_4_4.jpg,1
+fake_5_5.jpg,1
+fake_6_6.jpg,1
+fake_7_7.jpg,1
+fake_8_8.jpg,1
+fake_9_9.jpg,1
