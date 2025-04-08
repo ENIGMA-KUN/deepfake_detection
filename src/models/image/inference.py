@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 # Import models
 from src.models.image.xception_model import create_model as create_xception
 from src.models.image.efficientnet_model import create_model as create_efficientnet
+from src.models.image.resnet_model import create_model as create_resnet
 
 # Load configuration
 with open('config/config.json', 'r') as f:
@@ -28,7 +29,7 @@ class DeepfakeDetector:
         Initialize the deepfake detector
         
         Args:
-            model_type (str): Model type ('xception' or 'efficientnet')
+            model_type (str): Model type ('xception', 'efficientnet', or 'resnet')
             checkpoint_path (str): Path to model checkpoint
             device (torch.device): Device to use
         """
@@ -47,6 +48,10 @@ class DeepfakeDetector:
         elif model_type == 'efficientnet':
             self.input_size = config['models']['image']['efficientnet']['input_size']
             self.model = create_efficientnet(num_classes=2)
+        elif model_type == 'resnet':
+            # Use default ResNet input size of 224x224 if not specified in config
+            self.input_size = config.get('models', {}).get('image', {}).get('resnet', {}).get('input_size', 224)
+            self.model = create_resnet(num_classes=2)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
         
@@ -388,8 +393,8 @@ if __name__ == "__main__":
     import time
     
     parser = argparse.ArgumentParser(description='Inference with deepfake detection model')
-    parser.add_argument('--model', type=str, default='xception', choices=['xception', 'efficientnet'],
-                        help='Model type (xception or efficientnet)')
+    parser.add_argument('--model', type=str, default='xception', choices=['xception', 'efficientnet', 'resnet'],
+                        help='Model type (xception, efficientnet, or resnet)')
     parser.add_argument('--image', type=str, help='Path to input image')
     parser.add_argument('--output', type=str, help='Path to output visualization')
     parser.add_argument('--test_dir', type=str, help='Path to test directory for batch evaluation')
