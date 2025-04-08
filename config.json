@@ -1,0 +1,31 @@
+{
+    "data_path": {
+        "raw": "data/raw",
+        "processed": "data/processed",
+        "interim": "data/interim"
+    },
+    "models": {
+        "image": {
+            "xception": {
+                "input_size": 299,
+                "batch_size": 32,
+                "learning_rate": 0.0001
+            },
+            "efficientnet": {
+                "input_size": 224,
+                "batch_size": 16,
+                "learning_rate": 0.0001
+            }
+        }
+    },
+    "training": {
+        "epochs": 20,
+        "validation_split": 0.2,
+        "early_stopping_patience": 5
+    },
+    "paths": {
+        "faceforensics": "data/raw/faceforensics",
+        "celebdf": "data/raw/celebdf",
+        "processed_images": "data/processed/images"
+    }
+}
