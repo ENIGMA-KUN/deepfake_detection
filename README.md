@@ -7,7 +7,7 @@
 
 An advanced deepfake detection application with an interactive game mode, built with Streamlit and PyTorch.
 
-![DeepFake Detective Demo](assets/screenshots/demo.jpg)
+![DeepFake Detective Demo](assets/screenshots/demo.png)
 
 ## 🌟 Features
 

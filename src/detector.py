@@ -23,6 +23,17 @@ class XceptionNet(nn.Module):
     def forward(self, x):
         return self.xception(x)
 
+class SimpleXception(nn.Module):
+    """
+    Simplified Xception model for compatibility with DF40 models
+    """
+    def __init__(self):
+        super(SimpleXception, self).__init__()
+        self.model = None  # Will be loaded directly from file
+        
+    def forward(self, x):
+        return self.model(x)
+
 class DeepfakeDetector:
     """
     Main deepfake detection class that handles the model and preprocessing
@@ -37,41 +48,102 @@ class DeepfakeDetector:
         self.preprocessor = ImagePreprocessor(device=self.device)
         
         # Initialize our deepfake detection model
-        self.model = XceptionNet(num_classes=2)
+        self.model = None
+        self.model_type = "xception"  # Default model type
         
         # Download weights if they don't exist
         if weights_path is None:
             weights_path = self.download_weights()
-            
-        # Load model weights with improved error handling
-        if os.path.exists(weights_path):
-            try:
-                # Try standard loading first
-                self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
-                print(f"Successfully loaded model weights from {weights_path}")
-            except Exception as e:
-                print(f"Standard loading failed: {e}")
-                try:
-                    # Try loading as full model (not just state dict)
-                    loaded_model = torch.load(weights_path, map_location=self.device)
-                    
-                    # Check if it's already a complete model or just state dict
-                    if isinstance(loaded_model, dict) and 'state_dict' in loaded_model:
-                        self.model.load_state_dict(loaded_model['state_dict'])
-                    elif isinstance(loaded_model, dict):
-                        self.model.load_state_dict(loaded_model)
-                    else:
-                        # It's a full model object
-                        self.model = loaded_model
-                    print(f"Successfully loaded model using alternative method from {weights_path}")
-                except Exception as e2:
-                    print(f"All loading methods failed: {e2}")
-                    print("Please ensure your model file is compatible with the XceptionNet architecture")
-        else:
-            print(f"Warning: Model weights not found at {weights_path}")
         
+        # Try different methods to load the model
+        self.load_model(weights_path)
+        
+    def load_model(self, weights_path):
+        """
+        Try different methods to load the model
+        """
+        if not os.path.exists(weights_path):
+            print(f"Warning: Model weights not found at {weights_path}")
+            return
+
+        # Methods to try for loading the model
+        methods = [
+            self._load_standard_state_dict,
+            self._load_direct_model,
+            self._load_df40_format,
+            self._load_direct_state_dict,
+            self._load_jit_traced
+        ]
+
+        for method in methods:
+            try:
+                if method(weights_path):
+                    print(f"Successfully loaded model with method: {method.__name__}")
+                    return
+            except Exception as e:
+                print(f"Method {method.__name__} failed: {str(e)[:100]}...")
+
+        print("All methods failed to load the model. Please check the model format.")
+        
+    def _load_standard_state_dict(self, weights_path):
+        """Try loading as a standard state dict for XceptionNet"""
+        self.model = XceptionNet(num_classes=2)
+        self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
         self.model = self.model.to(self.device)
         self.model.eval()
+        self.model_type = "xception"
+        return True
+        
+    def _load_direct_model(self, weights_path):
+        """Try loading as a direct model"""
+        self.model = torch.load(weights_path, map_location=self.device)
+        self.model = self.model.to(self.device)
+        self.model.eval()
+        self.model_type = "direct"
+        return True
+        
+    def _load_df40_format(self, weights_path):
+        """Try loading in DF40 format"""
+        # Load model directly
+        model_data = torch.load(weights_path, map_location=self.device)
+        
+        # Check if it's a state dict with specific keys
+        if isinstance(model_data, dict):
+            if 'state_dict' in model_data:
+                # Initialize the model first
+                self.model = XceptionNet(num_classes=2)
+                self.model.load_state_dict(model_data['state_dict'])
+            else:
+                # Try loading directly as a state dict
+                self.model = XceptionNet(num_classes=2)
+                self.model.load_state_dict(model_data)
+        else:
+            # Assume it's a full model
+            self.model = model_data
+            
+        self.model = self.model.to(self.device)
+        self.model.eval()
+        self.model_type = "df40"
+        return True
+        
+    def _load_direct_state_dict(self, weights_path):
+        """Try simplest form - direct load of state dict"""
+        # Create a simple container model
+        self.model = SimpleXception()
+        # Load the model directly
+        self.model.model = torch.load(weights_path, map_location=self.device)
+        self.model = self.model.to(self.device)
+        self.model.eval()
+        self.model_type = "simple"
+        return True
+        
+    def _load_jit_traced(self, weights_path):
+        """Try loading as a TorchScript model"""
+        self.model = torch.jit.load(weights_path, map_location=self.device)
+        self.model = self.model.to(self.device)
+        self.model.eval()
+        self.model_type = "jit"
+        return True
         
     def download_weights(self):
         """
@@ -120,6 +192,11 @@ class DeepfakeDetector:
             marked_image: Image with boxes and labels
         """
         try:
+            if self.model is None:
+                print("No model loaded. Unable to make predictions.")
+                image = self.preprocessor.load_image(image_path, image_data)
+                return [], image
+                
             with torch.no_grad():
                 # Load and preprocess the image
                 image = self.preprocessor.load_image(image_path, image_data)
@@ -136,24 +213,29 @@ class DeepfakeDetector:
                     # Move tensor to device
                     face_tensor = face_tensor.to(self.device)
                     
-                    # Get model prediction
-                    outputs = self.model(face_tensor)
-                    
-                    # Handle different output formats (some models might return logits, others probabilities)
-                    if isinstance(outputs, tuple):
-                        outputs = outputs[0]  # Some models return (outputs, features)
-                    
-                    # Convert to probabilities if needed
-                    if outputs.shape[1] == 2:  # Binary classification
-                        probabilities = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()[0]
-                        # Get prediction (0: real, 1: fake)
-                        is_fake = probabilities[1] > 0.5
-                        confidence = probabilities[1] if is_fake else probabilities[0]
-                    else:  # Single output for binary classification
-                        confidence = torch.sigmoid(outputs).cpu().numpy()[0][0]
-                        is_fake = confidence > 0.5
-                    
-                    faces_with_predictions.append((box, is_fake, confidence))
+                    # Get model prediction based on model type
+                    try:
+                        outputs = self.model(face_tensor)
+                        
+                        # Handle different output formats
+                        if isinstance(outputs, tuple):
+                            outputs = outputs[0]  # Some models return (outputs, features)
+                        
+                        # Convert to probabilities if needed
+                        if outputs.shape[1] == 2:  # Binary classification
+                            probabilities = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()[0]
+                            # Get prediction (0: real, 1: fake)
+                            is_fake = probabilities[1] > 0.5
+                            confidence = probabilities[1] if is_fake else probabilities[0]
+                        else:  # Single output for binary classification
+                            confidence = torch.sigmoid(outputs).cpu().numpy()[0][0]
+                            is_fake = confidence > 0.5
+                        
+                        faces_with_predictions.append((box, is_fake, confidence))
+                    except Exception as e:
+                        print(f"Error during prediction for face: {e}")
+                        # Default to "real" with low confidence on error
+                        faces_with_predictions.append((box, False, 0.5))
                 
                 # Mark faces on the image
                 marked_image = self.preprocessor.mark_faces(image, faces_with_predictions)

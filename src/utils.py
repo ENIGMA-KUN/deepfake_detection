@@ -68,16 +68,16 @@ def show_image_with_boxes(image, boxes, is_fakes, confidences):
     ax.axis('off')
     return fig
 
-def display_prediction_with_explanation(predictions, image):
+def display_prediction_with_explanation(predictions, image, width=None):
     """
     Display prediction results with explanation
     """
     if not predictions:
         st.warning("No faces detected in the image.")
-        st.image(image, caption="Original Image", use_column_width=True)
+        st.image(image, caption="Original Image", width=width)
         return
     
-    st.image(image, caption="Analysis Result", use_column_width=True)
+    st.image(image, caption="Analysis Result", width=width)
     
     for i, (box, is_fake, confidence) in enumerate(predictions):
         face_label = f"Face {i+1}" if len(predictions) > 1 else "Face"

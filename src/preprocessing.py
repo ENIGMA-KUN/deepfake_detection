@@ -125,7 +125,7 @@ class ImagePreprocessor:
                 color = (0, 0, 255) if is_fake else (0, 255, 0)
                 
                 # Draw rectangle around face
-                cv2.rectangle(result, (x1, y1), (x2, y2), color, 2)
+                cv2.rectangle(result, (x1, y1), (x2, y2), color, 4)
                 
                 # Add label with confidence
                 label = f"Fake: {confidence:.2f}" if is_fake else f"Real: {confidence:.2f}"
