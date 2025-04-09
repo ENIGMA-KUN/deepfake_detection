@@ -5,6 +5,7 @@ from PIL import Image
 import time
 import cv2
 
+# Import the standard detector and the alternate approach
 from src.detector import DeepfakeDetector
 from src.game import DeepfakeGame
 from src.utils import (
@@ -12,6 +13,14 @@ from src.utils import (
     show_loading_spinner,
     display_prediction_with_explanation
 )
+
+# Add this at the top of your app.py file, right after the imports:
+try:
+    # Try to import the alternate detector (only if needed)
+    from src.alternate_model_approach import create_efficientnet_detector
+    HAS_ALTERNATE_MODEL = True
+except ImportError:
+    HAS_ALTERNATE_MODEL = False
 
 # Set page configuration
 st.set_page_config(
@@ -113,9 +122,20 @@ st.markdown("""
 def load_detector():
     """
     Load the deepfake detector model (cached)
+    Try multiple approaches if needed
     """
     create_app_directories()
-    return DeepfakeDetector()
+    
+    # First try the standard approach
+    detector = DeepfakeDetector()
+    
+    # Check if we're getting 0.5 confidence consistently
+    if detector.model_type == "dummy" and HAS_ALTERNATE_MODEL:
+        # Fall back to EfficientNet if Xception fails
+        print("Xception model failed to load. Trying EfficientNet instead.")
+        detector = create_efficientnet_detector()
+    
+    return detector
 
 def analysis_mode():
     """
@@ -215,6 +235,16 @@ def game_mode():
     
     game = st.session_state.game
     
+    # Initialize session state variables for game
+    if 'selected_image' not in st.session_state:
+        st.session_state.selected_image = None
+    
+    if 'answer_submitted' not in st.session_state:
+        st.session_state.answer_submitted = False
+    
+    if 'last_result' not in st.session_state:
+        st.session_state.last_result = None
+    
     st.markdown("""
     <div class="explainer">
         <h4>🎮 Game Mode</h4>
@@ -239,12 +269,6 @@ def game_mode():
     with col3:
         accuracy = (game.score / game.total_questions * 100) if game.total_questions > 0 else 0
         st.metric(label="Accuracy", value=f"{accuracy:.1f}%")
-    
-    # Store selected image in session state
-    if 'selected_image' not in st.session_state:
-        st.session_state.selected_image = None
-        st.session_state.answer_submitted = False
-        st.session_state.last_result = None
     
     # Image selection grid
     st.subheader("Select an image to analyze:")

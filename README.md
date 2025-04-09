@@ -8,15 +8,18 @@
 An advanced deepfake detection application with an interactive game mode, built with Streamlit and PyTorch.
 
 ![DeepFake Detective Demo](assets/screenshots/demo.png)
+![demos2](assets/screenshots/2.png)
+![demos3](assets/screenshots/3.png)
+![demos4](assets/screenshots/4.png)
 
 ## 🌟 Features
 
 - **Advanced Detection**: State-of-the-art Xception-based deepfake detection
 - **Dual Modes**: 
   - **Analysis Mode**: Upload your own images to detect manipulations
-  - **Game Mode**: Test your ability to spot deepfakes against AI
+  - **Game Mode**: Test your ability to spot deepfakes with an interactive image grid
 - **Rich Visualizations**: Detailed confidence scores and highlighted manipulated regions
-- **Clean UI**: Modern white-themed interface for optimal user experience
+- **Clean UI**: Modern white-themed interface with adjustable image sizes
 - **Educational**: Learn about deepfake detection techniques and how to spot them
 
 ## 🔍 What Sets This Apart
@@ -28,12 +31,13 @@ DeepFake Detective stands out from other deepfake detection applications due to:
 3. **Interactive Learning**: The game mode helps users understand how to spot deepfakes themselves
 4. **No External API Dependencies**: Runs completely locally with no need for cloud API keys
 5. **High Accuracy**: Leverages transfer learning from the Xception architecture, which has shown excellent performance in deepfake detection benchmarks
+6. **Model Compatibility**: Enhanced model loading supports various model formats and provides fallbacks
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.8 or 3.9 (recommended for best compatibility)
 - Git
 - pip (Python package installer)
 
@@ -41,8 +45,8 @@ DeepFake Detective stands out from other deepfake detection applications due to:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/deepfake-detective.git
-   cd deepfake-detective
+   git clone https://github.com/enigma-kun/deepfake-detection.git
+   cd deepfake-detection
    ```
 
 2. Create a virtual environment (optional but recommended):
@@ -63,7 +67,7 @@ DeepFake Detective stands out from other deepfake detection applications due to:
    - Add real face images to `assets/sample_images/real/`
    - Add fake face images to `assets/sample_images/fake/`
    
-   You can use images from datasets like FaceForensics++, CelebDF, or the DF40 dataset.
+   You can use any face images - they don't need to be from specific datasets as long as they're correctly sorted into real/fake categories.
 
 ### Running the Application
 
@@ -72,7 +76,7 @@ Run the Streamlit application:
 streamlit run app.py
 ```
 
-The application will automatically download the necessary model weights on first run.
+The application will automatically download the necessary model weights on first run if you don't have them.
 
 ## 📊 How It Works
 
@@ -91,11 +95,14 @@ Our model looks for subtle inconsistencies in the image, including:
 
 ## 🎮 Game Mode Instructions
 
-1. Click "New Question" to get a random image
-2. Carefully examine the image for signs of manipulation
-3. Click "Real" if you think it's authentic or "Fake" if you think it's manipulated
-4. See the result and the AI's analysis
-5. Continue to test your skills!
+The new grid-based game mode makes it easy to test your deepfake detection skills:
+
+1. Browse the grid of thumbnail images
+2. Click on any image to select it
+3. Examine the selected image for signs of manipulation
+4. Click "REAL" if you think it's authentic or "FAKE" if you think it's manipulated
+5. See the result and the AI's analysis
+6. Continue selecting different images to test your skills!
 
 Tips for spotting deepfakes:
 - Look for inconsistent lighting and shadows
@@ -121,6 +128,14 @@ Key characteristics:
 - Model Architecture: Xception
 - Input Size: 299x299 pixels
 - Output: Binary classification (Real/Fake) with confidence score
+
+### Model Compatibility
+
+The application includes enhanced model loading capabilities:
+- Multiple loading methods to support different model formats
+- Proper handling of state dictionaries and full models
+- Fallback options if the primary model fails to load
+- Support for DF40 and other dataset formats
 
 ### Limitations
 
