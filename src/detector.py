@@ -43,10 +43,30 @@ class DeepfakeDetector:
         if weights_path is None:
             weights_path = self.download_weights()
             
-        # Load model weights
+        # Load model weights with improved error handling
         if os.path.exists(weights_path):
-            self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
-            print(f"Loaded model weights from {weights_path}")
+            try:
+                # Try standard loading first
+                self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
+                print(f"Successfully loaded model weights from {weights_path}")
+            except Exception as e:
+                print(f"Standard loading failed: {e}")
+                try:
+                    # Try loading as full model (not just state dict)
+                    loaded_model = torch.load(weights_path, map_location=self.device)
+                    
+                    # Check if it's already a complete model or just state dict
+                    if isinstance(loaded_model, dict) and 'state_dict' in loaded_model:
+                        self.model.load_state_dict(loaded_model['state_dict'])
+                    elif isinstance(loaded_model, dict):
+                        self.model.load_state_dict(loaded_model)
+                    else:
+                        # It's a full model object
+                        self.model = loaded_model
+                    print(f"Successfully loaded model using alternative method from {weights_path}")
+                except Exception as e2:
+                    print(f"All loading methods failed: {e2}")
+                    print("Please ensure your model file is compatible with the XceptionNet architecture")
         else:
             print(f"Warning: Model weights not found at {weights_path}")
         
@@ -59,21 +79,33 @@ class DeepfakeDetector:
         """
         # Create models directory if it doesn't exist
         os.makedirs('models', exist_ok=True)
-        weights_path = 'models/xception_deepfake.pth'
         
-        # Skip download if file already exists
+        # Check for both potential filenames
+        weights_path = 'models/xception.pth'
+        alt_weights_path = 'models/xception_deepfake.pth'
+        
+        # Use existing file if available
         if os.path.exists(weights_path):
-            print(f"Model weights already exist at {weights_path}")
+            print(f"Model weights found at {weights_path}")
             return weights_path
+        elif os.path.exists(alt_weights_path):
+            print(f"Model weights found at {alt_weights_path}")
+            return alt_weights_path
             
-        # URL for the pretrained weights - using a pretrained Xception model trained on FF++
+        # If no file exists, download it
+        print("Downloading model weights...")
+        target_path = 'models/xception_deepfake.pth'
         url = 'https://drive.google.com/uc?id=1lPMhLMGdQRZT9jKd_CRXSiOvNCTXRbnD'
         
-        print("Downloading model weights...")
-        gdown.download(url, weights_path, quiet=False)
-        print(f"Downloaded model weights to {weights_path}")
-        
-        return weights_path
+        try:
+            gdown.download(url, target_path, quiet=False)
+            print(f"Downloaded model weights to {target_path}")
+            return target_path
+        except Exception as e:
+            print(f"Error downloading weights: {e}")
+            print("Please ensure the model file 'xception.pth' is in the models/ directory")
+            # Return the path anyway in case the file was partially downloaded
+            return target_path
     
     def predict(self, image_path=None, image_data=None):
         """
@@ -87,36 +119,57 @@ class DeepfakeDetector:
             faces_with_predictions: List of (box, is_fake, confidence)
             marked_image: Image with boxes and labels
         """
-        with torch.no_grad():
-            # Load and preprocess the image
-            image = self.preprocessor.load_image(image_path, image_data)
-            
-            # Extract faces
-            faces = self.preprocessor.extract_faces(image)
-            
-            if not faces:
-                print("No faces detected in the image")
-                return [], image
-            
-            faces_with_predictions = []
-            for face_tensor, box in faces:
-                # Move tensor to device
-                face_tensor = face_tensor.to(self.device)
+        try:
+            with torch.no_grad():
+                # Load and preprocess the image
+                image = self.preprocessor.load_image(image_path, image_data)
                 
-                # Get model prediction
-                outputs = self.model(face_tensor)
-                probabilities = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()[0]
+                # Extract faces
+                faces = self.preprocessor.extract_faces(image)
                 
-                # Get prediction (0: real, 1: fake)
-                is_fake = probabilities[1] > 0.5
-                confidence = probabilities[1] if is_fake else probabilities[0]
+                if not faces:
+                    print("No faces detected in the image")
+                    return [], image
                 
-                faces_with_predictions.append((box, is_fake, confidence))
-            
-            # Mark faces on the image
-            marked_image = self.preprocessor.mark_faces(image, faces_with_predictions)
-            
-            return faces_with_predictions, marked_image
+                faces_with_predictions = []
+                for face_tensor, box in faces:
+                    # Move tensor to device
+                    face_tensor = face_tensor.to(self.device)
+                    
+                    # Get model prediction
+                    outputs = self.model(face_tensor)
+                    
+                    # Handle different output formats (some models might return logits, others probabilities)
+                    if isinstance(outputs, tuple):
+                        outputs = outputs[0]  # Some models return (outputs, features)
+                    
+                    # Convert to probabilities if needed
+                    if outputs.shape[1] == 2:  # Binary classification
+                        probabilities = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()[0]
+                        # Get prediction (0: real, 1: fake)
+                        is_fake = probabilities[1] > 0.5
+                        confidence = probabilities[1] if is_fake else probabilities[0]
+                    else:  # Single output for binary classification
+                        confidence = torch.sigmoid(outputs).cpu().numpy()[0][0]
+                        is_fake = confidence > 0.5
+                    
+                    faces_with_predictions.append((box, is_fake, confidence))
+                
+                # Mark faces on the image
+                marked_image = self.preprocessor.mark_faces(image, faces_with_predictions)
+                
+                return faces_with_predictions, marked_image
+        except Exception as e:
+            print(f"Error during prediction: {e}")
+            # Return empty predictions and original image in case of error
+            if image_path:
+                image = self.preprocessor.load_image(image_path)
+            elif image_data is not None:
+                image = self.preprocessor.load_image(image_data=image_data)
+            else:
+                # Create a blank image if both are None
+                image = np.zeros((300, 300, 3), dtype=np.uint8)
+            return [], image
 
     def get_prediction_explanation(self, confidence):
         """
